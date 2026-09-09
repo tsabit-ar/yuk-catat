@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Trash2, Check, X, AlertTriangle } from 'lucide-react';
 import { Transaction, ComputedTransaction } from '../types';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatNumberInput, parseNumberInput } from '../utils/formatters';
 import { createDebounced } from '../utils/debounce';
 
 interface TransactionTableProps {
@@ -21,8 +21,8 @@ const TransactionTableRow: React.FC<{
 }> = ({ row, onUpdate, onDelete }) => {
   const [description, setDescription] = useState(row.description);
   const [date, setDate] = useState(row.date);
-  const [debitStr, setDebitStr] = useState(row.debit > 0 ? String(row.debit) : '');
-  const [creditStr, setCreditStr] = useState(row.credit > 0 ? String(row.credit) : '');
+  const [debitStr, setDebitStr] = useState(row.debit > 0 ? formatNumberInput(row.debit) : '');
+  const [creditStr, setCreditStr] = useState(row.credit > 0 ? formatNumberInput(row.credit) : '');
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
   // Maintain debounced update for description
@@ -45,8 +45,8 @@ const TransactionTableRow: React.FC<{
   useEffect(() => {
     setDescription(row.description);
     setDate(row.date);
-    setDebitStr(row.debit > 0 ? String(row.debit) : '');
-    setCreditStr(row.credit > 0 ? String(row.credit) : '');
+    setDebitStr(row.debit > 0 ? formatNumberInput(row.debit) : '');
+    setCreditStr(row.credit > 0 ? formatNumberInput(row.credit) : '');
   }, [row.id, row.description, row.date, row.debit, row.credit]);
 
   // Description Change Handler (Debounced)
@@ -79,28 +79,40 @@ const TransactionTableRow: React.FC<{
     });
   };
 
-  // Debit Blur Handler (Sanitize non-negative & save)
+  // Debit Change Handler (Numeric Masking)
+  const handleDebitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatNumberInput(e.target.value);
+    setDebitStr(formatted);
+  };
+
+  // Debit Blur Handler (Sanitize non-negative & persist number)
   const handleDebitBlur = () => {
-    const parsed = Math.max(0, Math.round(Number(debitStr) || 0));
+    const parsed = parseNumberInput(debitStr);
     if (parsed !== row.debit) {
       onUpdate({
         ...row,
         debit: parsed,
       });
     }
-    setDebitStr(parsed > 0 ? String(parsed) : '');
+    setDebitStr(parsed > 0 ? formatNumberInput(parsed) : '');
   };
 
-  // Credit Blur Handler (Sanitize non-negative & save)
+  // Credit Change Handler (Numeric Masking)
+  const handleCreditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatNumberInput(e.target.value);
+    setCreditStr(formatted);
+  };
+
+  // Credit Blur Handler (Sanitize non-negative & persist number)
   const handleCreditBlur = () => {
-    const parsed = Math.max(0, Math.round(Number(creditStr) || 0));
+    const parsed = parseNumberInput(creditStr);
     if (parsed !== row.credit) {
       onUpdate({
         ...row,
         credit: parsed,
       });
     }
-    setCreditStr(parsed > 0 ? String(parsed) : '');
+    setCreditStr(parsed > 0 ? formatNumberInput(parsed) : '');
   };
 
   return (
@@ -112,7 +124,7 @@ const TransactionTableRow: React.FC<{
           aria-label="Tanggal Transaksi"
           value={date}
           onChange={handleDateChange}
-          className="w-full text-xs font-medium px-2 py-1.5 rounded border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 focus:border-blue-500 bg-transparent focus:bg-white dark:focus:bg-zinc-800 text-slate-700 dark:text-zinc-300 outline-none transition"
+          className="w-full text-sm sm:text-xs font-medium px-2.5 py-2 sm:py-1.5 rounded border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 focus:border-blue-500 bg-transparent focus:bg-white dark:focus:bg-zinc-800 text-slate-700 dark:text-zinc-300 outline-none transition"
         />
       </td>
 
@@ -125,7 +137,7 @@ const TransactionTableRow: React.FC<{
           value={description}
           onChange={handleDescriptionChange}
           onBlur={handleDescriptionBlur}
-          className="w-full text-xs font-medium px-2.5 py-1.5 rounded border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 focus:border-blue-500 bg-transparent focus:bg-white dark:focus:bg-zinc-800 text-slate-800 dark:text-zinc-100 outline-none transition"
+          className="w-full text-sm sm:text-xs font-medium px-3 py-2 sm:py-1.5 rounded border border-transparent hover:border-slate-200 dark:hover:border-zinc-700 focus:border-blue-500 bg-transparent focus:bg-white dark:focus:bg-zinc-800 text-slate-800 dark:text-zinc-100 outline-none transition"
         />
       </td>
 
@@ -133,15 +145,14 @@ const TransactionTableRow: React.FC<{
       <td className="py-2.5 px-3 whitespace-nowrap text-right">
         <div className="relative flex items-center justify-end">
           <input
-            type="number"
-            min="0"
-            step="1000"
+            type="text"
+            inputMode="numeric"
             aria-label="Debit / Pemasukan"
             placeholder="0"
             value={debitStr}
-            onChange={(e) => setDebitStr(e.target.value)}
+            onChange={handleDebitChange}
             onBlur={handleDebitBlur}
-            className="w-32 text-xs font-semibold px-2 py-1.5 rounded border border-transparent hover:border-emerald-200 dark:hover:border-emerald-900/60 focus:border-emerald-500 bg-transparent focus:bg-white dark:focus:bg-zinc-800 text-emerald-600 dark:text-emerald-400 text-right tabular-nums outline-none transition"
+            className="w-32 text-sm sm:text-xs font-semibold px-2.5 py-2 sm:py-1.5 rounded border border-transparent hover:border-emerald-200 dark:hover:border-emerald-900/60 focus:border-emerald-500 bg-transparent focus:bg-white dark:focus:bg-zinc-800 text-emerald-600 dark:text-emerald-400 text-right tabular-nums outline-none transition"
           />
         </div>
       </td>
@@ -150,21 +161,20 @@ const TransactionTableRow: React.FC<{
       <td className="py-2.5 px-3 whitespace-nowrap text-right">
         <div className="relative flex items-center justify-end">
           <input
-            type="number"
-            min="0"
-            step="1000"
+            type="text"
+            inputMode="numeric"
             aria-label="Kredit / Pengeluaran"
             placeholder="0"
             value={creditStr}
-            onChange={(e) => setCreditStr(e.target.value)}
+            onChange={handleCreditChange}
             onBlur={handleCreditBlur}
-            className="w-32 text-xs font-semibold px-2 py-1.5 rounded border border-transparent hover:border-rose-200 dark:hover:border-rose-900/60 focus:border-rose-500 bg-transparent focus:bg-white dark:focus:bg-zinc-800 text-rose-600 dark:text-rose-400 text-right tabular-nums outline-none transition"
+            className="w-32 text-sm sm:text-xs font-semibold px-2.5 py-2 sm:py-1.5 rounded border border-transparent hover:border-rose-200 dark:hover:border-rose-900/60 focus:border-rose-500 bg-transparent focus:bg-white dark:focus:bg-zinc-800 text-rose-600 dark:text-rose-400 text-right tabular-nums outline-none transition"
           />
         </div>
       </td>
 
       {/* 5. Total Saldo (Computed - STRICTLY READ ONLY with distinctive styling) */}
-      <td className="py-2.5 px-4 whitespace-nowrap text-right bg-slate-100/70 dark:bg-zinc-800/60 font-bold text-xs tabular-nums text-slate-900 dark:text-zinc-100 border-l border-r border-slate-200 dark:border-zinc-800 select-none">
+      <td className="py-2.5 px-4 whitespace-nowrap text-right bg-slate-100/70 dark:bg-zinc-800/60 font-bold text-sm sm:text-xs tabular-nums text-slate-900 dark:text-zinc-100 border-l border-r border-slate-200 dark:border-zinc-800 select-none">
         <span
           className={
             row.runningBalance < 0
@@ -179,27 +189,27 @@ const TransactionTableRow: React.FC<{
       {/* 6. Aksi (Delete Row with confirmation) */}
       <td className="py-2.5 px-3 whitespace-nowrap text-center">
         {isConfirmingDelete ? (
-          <div className="flex items-center justify-center space-x-1 animate-scale-in">
+          <div className="flex items-center justify-center space-x-1.5 animate-scale-in">
             <button
               onClick={() => onDelete(row.id)}
               title="Konfirmasi Hapus"
-              className="p-1 rounded bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition"
+              className="p-1.5 rounded bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition"
             >
-              <Check className="w-3.5 h-3.5" />
+              <Check className="w-4 h-4" />
             </button>
             <button
               onClick={() => setIsConfirmingDelete(false)}
               title="Batal"
-              className="p-1 rounded bg-slate-200 hover:bg-slate-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-slate-700 dark:text-zinc-200 transition"
+              className="p-1.5 rounded bg-slate-200 hover:bg-slate-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-slate-700 dark:text-zinc-200 transition"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         ) : (
           <button
             onClick={() => setIsConfirmingDelete(true)}
             title="Hapus baris transaksi ini"
-            className="opacity-40 group-hover:opacity-100 p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition"
+            className="opacity-60 group-hover:opacity-100 p-2 sm:p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -236,16 +246,16 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
         {/* Action Button: Tambah Transaksi */}
         <button
           onClick={onAddTransaction}
-          className="inline-flex items-center justify-center space-x-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-semibold shadow-md shadow-blue-500/20 transition cursor-pointer"
+          className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 sm:py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-semibold shadow-md shadow-blue-500/20 transition cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Tambah Transaksi</span>
         </button>
       </div>
 
-      {/* Table Container */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse">
+      {/* Table Container with Mobile Responsiveness */}
+      <div className="w-full overflow-x-auto shadow-sm rounded-lg border border-slate-200 dark:border-zinc-800">
+        <table className="w-full min-w-[680px] text-left border-collapse">
           <thead>
             <tr className="bg-slate-50/90 dark:bg-zinc-800/60 border-b border-slate-200 dark:border-zinc-800 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
               <th className="py-3 px-3 w-36">Tanggal</th>
@@ -274,15 +284,18 @@ export const TransactionTable: React.FC<TransactionTableProps> = ({
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="py-12 text-center text-slate-400 dark:text-zinc-500">
-                  <div className="flex flex-col items-center justify-center space-y-2">
+                <td colSpan={6} className="py-12 px-4 text-center text-slate-500 dark:text-zinc-400">
+                  <div className="flex flex-col items-center justify-center space-y-2.5">
                     <AlertTriangle className="w-8 h-8 text-slate-300 dark:text-zinc-600" />
-                    <p className="text-sm font-medium">Belum ada data transaksi pada periode ini.</p>
+                    <p className="text-sm font-medium">
+                      Belum ada transaksi. Klik &apos;Tambah Transaksi&apos; untuk mulai mencatat.
+                    </p>
                     <button
                       onClick={onAddTransaction}
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-semibold"
+                      className="inline-flex items-center space-x-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition"
                     >
-                      Klik di sini untuk menambah transaksi pertama
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Tambah Transaksi</span>
                     </button>
                   </div>
                 </td>

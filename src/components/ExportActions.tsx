@@ -23,7 +23,13 @@ export const ExportActions: React.FC<ExportActionsProps> = ({
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const isDataEmpty = ledger.displayRows.length === 0;
+
   const handleExportExcel = () => {
+    if (isDataEmpty) {
+      showToast('Tidak ada data untuk diekspor');
+      return;
+    }
     try {
       setIsExportingExcel(true);
       setTimeout(() => {
@@ -39,6 +45,10 @@ export const ExportActions: React.FC<ExportActionsProps> = ({
   };
 
   const handleExportPDF = () => {
+    if (isDataEmpty) {
+      showToast('Tidak ada data untuk diekspor');
+      return;
+    }
     try {
       setIsExportingPDF(true);
       setTimeout(() => {
@@ -59,20 +69,30 @@ export const ExportActions: React.FC<ExportActionsProps> = ({
         {/* Export Excel Button */}
         <button
           onClick={handleExportExcel}
-          disabled={isExportingExcel}
-          className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold shadow-sm transition disabled:opacity-50 cursor-pointer"
+          disabled={isExportingExcel || isDataEmpty}
+          title={isDataEmpty ? 'Tidak ada data untuk diekspor' : 'Ekspor Excel (.xlsx)'}
+          className={`inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl border text-xs font-semibold shadow-sm transition ${
+            isDataEmpty
+              ? 'border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800/60 text-slate-400 dark:text-zinc-600 cursor-not-allowed opacity-60'
+              : 'border-emerald-300 dark:border-emerald-800 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 cursor-pointer'
+          }`}
         >
-          <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          <FileSpreadsheet className={`w-4 h-4 ${isDataEmpty ? 'text-slate-400' : 'text-emerald-600 dark:text-emerald-400'}`} />
           <span>{isExportingExcel ? 'Membuat Excel...' : 'Ekspor Excel (.xlsx)'}</span>
         </button>
 
         {/* Export PDF Button */}
         <button
           onClick={handleExportPDF}
-          disabled={isExportingPDF}
-          className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-800 dark:text-rose-300 text-xs font-semibold shadow-sm transition disabled:opacity-50 cursor-pointer"
+          disabled={isExportingPDF || isDataEmpty}
+          title={isDataEmpty ? 'Tidak ada data untuk diekspor' : 'Ekspor PDF'}
+          className={`inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl border text-xs font-semibold shadow-sm transition ${
+            isDataEmpty
+              ? 'border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800/60 text-slate-400 dark:text-zinc-600 cursor-not-allowed opacity-60'
+              : 'border-rose-300 dark:border-rose-800 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-800 dark:text-rose-300 cursor-pointer'
+          }`}
         >
-          <FileText className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+          <FileText className={`w-4 h-4 ${isDataEmpty ? 'text-slate-400' : 'text-rose-600 dark:text-rose-400'}`} />
           <span>{isExportingPDF ? 'Membuat PDF...' : 'Ekspor PDF'}</span>
         </button>
       </div>

@@ -13,6 +13,31 @@ export function formatCurrency(amount: number): string {
 }
 
 /**
+ * Formats a raw numeric string or number into Indonesian thousand-separated string (e.g. "150000" -> "150.000").
+ * Strips all non-digit characters and returns '' if empty.
+ */
+export function formatNumberInput(value: string | number): string {
+  if (value === '' || value === null || value === undefined) return '';
+  const digits = String(value).replace(/\D/g, '');
+  if (!digits) return '';
+  const parsed = parseInt(digits, 10);
+  if (isNaN(parsed) || parsed <= 0) return '';
+  return new Intl.NumberFormat('id-ID').format(parsed);
+}
+
+/**
+ * Parses a thousand-separated string back to a pure positive integer (number).
+ * Guaranteed to return >= 0 and never NaN.
+ */
+export function parseNumberInput(value: string): number {
+  if (!value) return 0;
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return 0;
+  const num = parseInt(digits, 10);
+  return isNaN(num) || num < 0 ? 0 : num;
+}
+
+/**
  * Returns today's date in local YYYY-MM-DD string format.
  */
 export function getTodayDateString(): string {

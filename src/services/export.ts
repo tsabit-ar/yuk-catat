@@ -12,6 +12,11 @@ export function exportToExcel(
   filter?: DateRangeFilter,
   filenamePrefix = 'Laporan_Keuangan_YukCatat'
 ): void {
+  if (!ledger.displayRows || ledger.displayRows.length === 0) {
+    console.warn('[Export] Tidak ada data transaksi untuk diekspor.');
+    return;
+  }
+
   // Sort rows chronologically ascending for standard accounting sheet layout
   const chronologicalRows = [...ledger.displayRows].sort((a, b) => {
     const dateDiff = a.date.localeCompare(b.date);
@@ -107,6 +112,11 @@ export function exportToPDF(
   chartCanvas?: HTMLCanvasElement | null,
   filenamePrefix = 'Laporan_Keuangan_YukCatat'
 ): void {
+  if (!ledger.displayRows || ledger.displayRows.length === 0) {
+    console.warn('[Export] Tidak ada data transaksi untuk diekspor.');
+    return;
+  }
+
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',

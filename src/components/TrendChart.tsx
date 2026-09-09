@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { TrendingUp } from 'lucide-react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -39,7 +40,7 @@ export const TrendChart: React.FC<TrendChartProps> = ({ ledger, onCanvasReady })
 
   // Pass canvas to parent for PDF export whenever chart renders
   useEffect(() => {
-    if (chartRef.current && chartRef.current.canvas) {
+    if (ledger.displayRows.length > 0 && chartRef.current && chartRef.current.canvas) {
       onCanvasReady?.(chartRef.current.canvas);
     } else {
       onCanvasReady?.(null);
@@ -138,6 +139,34 @@ export const TrendChart: React.FC<TrendChartProps> = ({ ledger, onCanvasReady })
       },
     },
   };
+
+  if (ledger.displayRows.length === 0) {
+    return (
+      <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="text-sm font-bold text-slate-800 dark:text-zinc-200">
+              Grafik Tren Saldo Kumulatif
+            </h3>
+            <p className="text-xs text-slate-400 dark:text-zinc-400">
+              Perkembangan saldo kas dari waktu ke waktu berdasarkan transaksi
+            </p>
+          </div>
+        </div>
+        <div className="h-52 w-full flex flex-col items-center justify-center bg-slate-50/70 dark:bg-zinc-800/30 rounded-xl border border-dashed border-slate-200 dark:border-zinc-800 p-6 text-center">
+          <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-400 dark:text-zinc-500 mb-2">
+            <TrendingUp className="w-5 h-5" />
+          </div>
+          <p className="text-sm font-semibold text-slate-700 dark:text-zinc-300">
+            Belum Ada Data Transaksi
+          </p>
+          <p className="text-xs text-slate-400 dark:text-zinc-500 mt-1 max-w-sm">
+            Tambahkan transaksi pada tabel di bawah untuk melihat visualisasi grafik arus kas dan tren saldo kumulatif.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm">
