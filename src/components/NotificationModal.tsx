@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { X, Bell, Clock, Calendar, Check, Send } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Bell, Clock, Calendar, Check, Send, AlertCircle } from 'lucide-react';
 import { NotificationConfig } from '../types';
 import { pwaService } from '../services/pwa';
+import { storageService } from '../services/storage';
 
 interface NotificationModalProps {
   isOpen: boolean;
@@ -29,7 +30,20 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   const [isEnabled, setIsEnabled] = useState(config.isEnabled);
   const [reminderTime, setReminderTime] = useState(config.reminderTime);
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>(config.daysOfWeek);
-  const [testSent, setTestSent] = useState(false);
+  const [testStatus, setTestStatus] = useState<string | null>(null);
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  // Sync with prop when opened
+  useEffect(() => {
+    if (isOpen) {
+      setIsEnabled(config.isEnabled);
+      setReminderTime(config.reminderTime);
+      setDaysOfWeek(config.daysOfWeek);
+      setTestStatus(null);
+      setFeedback(null);
+    }
+  }, [isOpen, config]);
 
   if (!isOpen) return null;
 
@@ -38,6 +52,28 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
       setDaysOfWeek(daysOfWeek.filter((d) => d !== dayId));
     } else {
       setDaysOfWeek([...daysOfWeek, dayId].sort());
+    }
+  };
+
+  const handleToggleEnable = async () => {
+    const nextState = !isEnabled;
+    setIsEnabled(nextState);
+
+    if (nextState) {
+      // Prompt browser permission & subscribe to Web Push on backend
+      setIsSubscribing(true);
+      try {
+        const success = await pwaService.subscribeToWebPush();
+        if (success) {
+          setFeedback('Perangkat browser Anda berhasil terdaftar untuk Web Push harian!');
+        } else {
+          setFeedback('Izin notifikasi browser belum diberikan atau push belum aktif.');
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsSubscribing(false);
+      }
     }
   };
 
@@ -51,12 +87,25 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
   };
 
   const handleTestNotification = async () => {
-    setTestSent(true);
-    await pwaService.showTestNotification(
-      'YukCatat - Pengingat Harian',
-      'Saatnya mencatat pengeluaran harian Anda agar arus kas tetap rapi!'
-    );
-    setTimeout(() => setTestSent(false), 3000);
+    setTestStatus('sending');
+    try {
+      // First attempt test push via backend API
+      const result = await storageService.testPush();
+      setTestStatus(`Terkirim dari server (${result.sentCount} perangkat)!`);
+    } catch {
+      // Graceful fallback to local browser notification if backend push is not registered
+      const localOk = await pwaService.showTestNotification(
+        'YukCatat - Uji Coba Pengingat',
+        'Notifikasi uji coba berhasil ditampilkan di peramban Anda!'
+      );
+      if (localOk) {
+        setTestStatus('Notifikasi lokal browser aktif!');
+      } else {
+        setTestStatus('Gagal: Izin notifikasi browser belum aktif.');
+      }
+    }
+
+    setTimeout(() => setTestStatus(null), 3500);
   };
 
   return (
@@ -73,7 +122,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 Pengingat Harian PWA
               </h3>
               <p className="text-xs text-slate-500 dark:text-zinc-400">
-                Jadwalkan notifikasi untuk mencatat buku kas
+                Tersinkronisasi dengan cron worker server backend
               </p>
             </div>
           </div>
@@ -87,6 +136,13 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
         {/* Content */}
         <div className="p-5 space-y-5">
+          {feedback && (
+            <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-300 text-xs font-medium flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{feedback}</span>
+            </div>
+          )}
+
           {/* Toggle Aktifkan */}
           <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/60">
             <div>
@@ -94,14 +150,16 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 Aktifkan Pengingat Harian
               </span>
               <span className="text-xs text-slate-500 dark:text-zinc-400 block">
-                Terima pengingat Web Push langsung di perangkat
+                {isSubscribing
+                  ? 'Mendaftarkan endpoint Web Push...'
+                  : 'Kirim notifikasi terjadwal dari server'}
               </span>
             </div>
             <button
               type="button"
               role="switch"
               aria-checked={isEnabled}
-              onClick={() => setIsEnabled(!isEnabled)}
+              onClick={handleToggleEnable}
               className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                 isEnabled ? 'bg-blue-600' : 'bg-slate-300 dark:bg-zinc-700'
               }`}
@@ -120,7 +178,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
               <div>
                 <label className="flex items-center space-x-1.5 text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-2">
                   <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                  <span>Waktu Pengingat (Format 24 Jam)</span>
+                  <span>Waktu Pengingat (WIB / Asia Jakarta, Format 24 Jam)</span>
                 </label>
                 <input
                   type="time"
@@ -144,7 +202,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                         key={day.id}
                         type="button"
                         onClick={() => toggleDay(day.id)}
-                        className={`py-2 text-xs font-bold rounded-lg border transition ${
+                        className={`py-2 text-xs font-bold rounded-lg border transition cursor-pointer ${
                           isSelected
                             ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
                             : 'bg-white dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:border-slate-300'
@@ -162,13 +220,13 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 <button
                   type="button"
                   onClick={handleTestNotification}
-                  disabled={testSent}
-                  className="w-full flex items-center justify-center space-x-2 py-2 px-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-xs font-semibold transition"
+                  disabled={testStatus === 'sending'}
+                  className="w-full flex items-center justify-center space-x-2 py-2 px-3 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-xs font-semibold transition cursor-pointer"
                 >
-                  {testSent ? (
+                  {testStatus ? (
                     <>
                       <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Notifikasi Dikirim ke Browser!</span>
+                      <span>{testStatus}</span>
                     </>
                   ) : (
                     <>
@@ -186,14 +244,14 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition"
+              className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition cursor-pointer"
             >
               Batal
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md shadow-blue-500/20 transition"
+              className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md shadow-blue-500/20 transition cursor-pointer"
             >
               Simpan Pengaturan
             </button>

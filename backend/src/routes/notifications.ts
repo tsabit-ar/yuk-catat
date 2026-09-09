@@ -19,14 +19,18 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   }
 }
 
-// All notification routes require authentication
+// Public endpoint to fetch VAPID public key for browser PushManager subscription
+router.get('/vapid-public-key', (_req, res) => {
+  res.json({ publicKey: VAPID_PUBLIC_KEY || '' });
+});
+
+// All notification routes below require authentication
 router.use(authenticateJWT);
 
 /**
- * GET /api/notifications/config
- * Retrieves the user's notification settings.
+ * Handler for retrieving reminder schedule config.
  */
-router.get('/config', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+const getScheduleHandler = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
     const result = await pool.query(
@@ -49,20 +53,30 @@ router.get('/config', async (req: AuthenticatedRequest, res: Response): Promise<
     console.error('[Notifications] Config GET Error:', error);
     res.status(500).json({ error: 'Gagal mengambil pengaturan notifikasi.' });
   }
-});
+};
+
+router.get('/config', getScheduleHandler);
+router.get('/schedule', getScheduleHandler);
 
 /**
- * POST /api/notifications/schedule
- * Saves or updates user's daily reminder schedule.
+ * Handler for saving/updating reminder schedule config.
  */
-router.post('/schedule', async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+const saveScheduleHandler = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { reminderTime, daysOfWeek, isEnabled } = req.body;
+    const body = req.body || {};
+
+    const reminderTime = body.reminderTime || body.reminder_time || '20:00';
+    const daysOfWeek = body.daysOfWeek || body.days_of_week || [1, 2, 3, 4, 5, 6, 7];
+    const isEnabled = typeof body.isEnabled === 'boolean'
+      ? body.isEnabled
+      : typeof body.is_enabled === 'boolean'
+      ? body.is_enabled
+      : true;
 
     const time = typeof reminderTime === 'string' ? reminderTime : '20:00';
     const days = Array.isArray(daysOfWeek) ? daysOfWeek : [1, 2, 3, 4, 5, 6, 7];
-    const enabled = typeof isEnabled === 'boolean' ? isEnabled : true;
+    const enabled = Boolean(isEnabled);
 
     await pool.query(
       `INSERT INTO notification_settings (user_id, reminder_time, days_of_week, is_enabled, updated_at)
@@ -86,7 +100,10 @@ router.post('/schedule', async (req: AuthenticatedRequest, res: Response): Promi
     console.error('[Notifications] Schedule Error:', error);
     res.status(500).json({ error: 'Gagal memperbarui jadwal notifikasi.' });
   }
-});
+};
+
+router.post('/schedule', saveScheduleHandler);
+router.put('/schedule', saveScheduleHandler);
 
 /**
  * POST /api/notifications/subscribe

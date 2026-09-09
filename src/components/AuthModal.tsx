@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Lock, Mail, User as UserIcon, ArrowRight } from 'lucide-react';
+import { X, Lock, Mail, User as UserIcon, ArrowRight, AlertCircle } from 'lucide-react';
 import { UserSession } from '../types';
+import { storageService } from '../services/storage';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -14,28 +15,50 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onLoginSuccess,
 }) => {
   const [isRegister, setIsRegister] = useState(false);
-  const [name, setName] = useState('Budi Santoso');
-  const [email, setEmail] = useState('budi@yukcatat.id');
-  const [password, setPassword] = useState('password123');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrorMessage(null);
 
-    // Simulated login delay
-    setTimeout(() => {
-      setIsLoading(false);
-      const session: UserSession = {
-        name: isRegister ? name : name || 'Pengguna YukCatat',
-        email,
-        token: `mock-jwt-${Date.now()}`,
-      };
-      onLoginSuccess(session);
+    try {
+      if (isRegister) {
+        if (!name.trim()) {
+          setErrorMessage('Nama lengkap wajib diisi.');
+          setIsLoading(false);
+          return;
+        }
+        const res = await storageService.register({
+          name: name.trim(),
+          email: email.trim(),
+          password,
+        });
+        onLoginSuccess(res.user);
+      } else {
+        const res = await storageService.login({
+          email: email.trim(),
+          password,
+        });
+        onLoginSuccess(res.user);
+      }
       onClose();
-    }, 400);
+    } catch (err: unknown) {
+      setErrorMessage((err as Error).message || 'Terjadi kesalahan saat otentikasi.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleMode = () => {
+    setIsRegister(!isRegister);
+    setErrorMessage(null);
   };
 
   return (
@@ -48,7 +71,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {isRegister ? 'Daftar Akun Baru' : 'Masuk ke YukCatat'}
             </h3>
             <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-              Simulasi autentikasi lokal untuk sesi buku kas Anda
+              Terhubung langsung dengan database Neon PostgreSQL
             </p>
           </div>
           <button
@@ -61,6 +84,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {errorMessage && (
+            <div className="flex items-start space-x-2.5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 dark:bg-rose-950/40 dark:border-rose-900 dark:text-rose-300 text-xs font-medium">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
           {isRegister && (
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
@@ -123,13 +153,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-md shadow-blue-500/20 transition disabled:opacity-50"
+            className="w-full flex items-center justify-center space-x-2 py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-md shadow-blue-500/20 transition disabled:opacity-50 cursor-pointer"
           >
             {isLoading ? (
               <span>Memproses...</span>
             ) : (
               <>
-                <span>{isRegister ? 'Buat Akun' : 'Masuk Sekarang'}</span>
+                <span>{isRegister ? 'Daftar Akun' : 'Masuk Sekarang'}</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -138,10 +168,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div className="text-center pt-2">
             <button
               type="button"
-              onClick={() => setIsRegister(!isRegister)}
+              onClick={toggleMode}
               className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
             >
-              {isRegister ? 'Sudah memiliki akun? Masuk di sini' : 'Belum punya akun? Daftar simulasi'}
+              {isRegister ? 'Sudah memiliki akun? Masuk di sini' : 'Belum punya akun? Daftar sekarang'}
             </button>
           </div>
         </form>
