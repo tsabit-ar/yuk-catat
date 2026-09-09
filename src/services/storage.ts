@@ -6,7 +6,11 @@ import {
   UserSession,
 } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const envApiUrl = import.meta.env.VITE_API_BASE_URL;
+// In production or when VITE_API_BASE_URL is empty, fallback to '/api' for same-origin deployment
+const API_BASE_URL = (import.meta.env.PROD || !envApiUrl || envApiUrl.trim() === '')
+  ? '/api'
+  : envApiUrl;
 const SESSION_KEY = 'yukcatat_user_session';
 
 /**

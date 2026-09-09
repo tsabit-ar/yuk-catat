@@ -40,6 +40,7 @@ router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> 
       WITH all_computed AS (
         SELECT
           id,
+          date AS raw_date,
           TO_CHAR(date, 'YYYY-MM-DD') AS date,
           description,
           debit::numeric AS debit,
@@ -53,11 +54,19 @@ router.get('/', async (req: AuthenticatedRequest, res: Response): Promise<void> 
         FROM transactions
         WHERE user_id = $1
       )
-      SELECT *
+      SELECT
+        id,
+        date,
+        description,
+        debit,
+        credit,
+        "createdAt",
+        "updatedAt",
+        "runningBalance"
       FROM all_computed
-      WHERE ($2::date IS NULL OR date >= $2)
-        AND ($3::date IS NULL OR date <= $3)
-      ORDER BY date DESC, "createdAt" DESC;
+      WHERE ($2::date IS NULL OR raw_date >= $2::date)
+        AND ($3::date IS NULL OR raw_date <= $3::date)
+      ORDER BY raw_date DESC, "createdAt" DESC;
     `;
 
     const result = await pool.query(query, [userId, startDate, endDate]);

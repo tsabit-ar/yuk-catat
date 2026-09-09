@@ -1,7 +1,8 @@
-import { Router, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import webpush from 'web-push';
 import { pool } from '../config/db.js';
 import { authenticateJWT, AuthenticatedRequest } from '../middlewares/auth.js';
+import { executeScheduledReminders } from '../services/scheduler.js';
 
 const router = Router();
 
@@ -24,7 +25,40 @@ router.get('/vapid-public-key', (_req, res) => {
   res.json({ publicKey: VAPID_PUBLIC_KEY || '' });
 });
 
-// All notification routes below require authentication
+/**
+ * GET /api/notifications/run-cron
+ * Serverless trigger endpoint for scheduled reminders (e.g. Vercel Cron).
+ * Protected by CRON_SECRET via Authorization: Bearer <CRON_SECRET> or query param ?secret=<CRON_SECRET>.
+ */
+router.get('/run-cron', async (req: Request, res: Response): Promise<void> => {
+  const cronSecret = process.env.CRON_SECRET;
+  const authHeader = req.headers.authorization;
+  const querySecret = (req.query.secret as string) || (req.query.cron_secret as string);
+
+  // If CRON_SECRET is configured, enforce matching token
+  if (cronSecret) {
+    const isBearerMatch = authHeader === `Bearer ${cronSecret}`;
+    const isQueryMatch = querySecret === cronSecret;
+    if (!isBearerMatch && !isQueryMatch) {
+      res.status(401).json({ error: 'Akses ditolak: CRON_SECRET tidak valid.' });
+      return;
+    }
+  }
+
+  try {
+    const result = await executeScheduledReminders();
+    res.json({
+      message: 'Cron pengingat harian berhasil dijalankan.',
+      timestamp: new Date().toISOString(),
+      ...result,
+    });
+  } catch (error: unknown) {
+    console.error('[Notifications] Run-Cron Error:', error);
+    res.status(500).json({ error: (error as Error).message || 'Gagal menjalankan cron pengingat.' });
+  }
+});
+
+// All notification routes below require user authentication
 router.use(authenticateJWT);
 
 /**
@@ -123,13 +157,13 @@ router.post('/subscribe', async (req: AuthenticatedRequest, res: Response): Prom
     const { p256dh, auth } = keys;
 
     await pool.query(
-      `INSERT INTO push_subscriptions (user_id, endpoint, keys_p256dh, keys_auth)
+      `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (endpoint)
        DO UPDATE SET
          user_id = EXCLUDED.user_id,
-         keys_p256dh = EXCLUDED.keys_p256dh,
-         keys_auth = EXCLUDED.keys_auth,
+         p256dh = EXCLUDED.p256dh,
+         auth = EXCLUDED.auth,
          created_at = NOW()`,
       [userId, endpoint, p256dh, auth]
     );
@@ -157,7 +191,7 @@ router.post('/test-push', async (req: AuthenticatedRequest, res: Response): Prom
     }
 
     const subsResult = await pool.query(
-      'SELECT id, endpoint, keys_p256dh, keys_auth FROM push_subscriptions WHERE user_id = $1',
+      'SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = $1',
       [userId]
     );
 
@@ -177,14 +211,14 @@ router.post('/test-push', async (req: AuthenticatedRequest, res: Response): Prom
     });
 
     let sentCount = 0;
-    const expiredIds: number[] = [];
+    const expiredIds: (string | number)[] = [];
 
     for (const sub of subsResult.rows) {
       const pushSubscription = {
         endpoint: sub.endpoint,
         keys: {
-          p256dh: sub.keys_p256dh,
-          auth: sub.keys_auth,
+          p256dh: sub.p256dh,
+          auth: sub.auth,
         },
       };
 

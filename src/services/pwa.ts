@@ -67,10 +67,10 @@ export const pwaService = {
     try {
       const reg = await navigator.serviceWorker.ready;
 
-      // Fetch VAPID public key from backend
-      const vapidPublicKey = await storageService.getVapidPublicKey();
+      // Fetch VAPID public key from environment or backend
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY || (await storageService.getVapidPublicKey());
       if (!vapidPublicKey) {
-        console.warn('[PWA] VAPID Public Key belum tersedia dari backend.');
+        console.warn('[PWA] VAPID Public Key belum tersedia.');
         return false;
       }
 

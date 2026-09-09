@@ -1,7 +1,15 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
 
 dotenv.config();
+if (!process.env.DATABASE_URL) {
+  const backendEnvPath = path.resolve(process.cwd(), 'backend/.env');
+  if (fs.existsSync(backendEnvPath)) {
+    dotenv.config({ path: backendEnvPath });
+  }
+}
 
 const { Pool } = pg;
 
@@ -36,7 +44,7 @@ export async function initDatabase(): Promise<void> {
         CREATE TABLE IF NOT EXISTS users (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           email VARCHAR(255) UNIQUE NOT NULL,
-          password VARCHAR(255) NOT NULL,
+          password_hash VARCHAR(255) NOT NULL,
           name VARCHAR(255) NOT NULL,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
@@ -58,11 +66,11 @@ export async function initDatabase(): Promise<void> {
 
         -- 3. Push Subscriptions Table
         CREATE TABLE IF NOT EXISTS push_subscriptions (
-          id SERIAL PRIMARY KEY,
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
           endpoint TEXT NOT NULL UNIQUE,
-          keys_p256dh TEXT NOT NULL,
-          keys_auth TEXT NOT NULL,
+          p256dh TEXT NOT NULL,
+          auth TEXT NOT NULL,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
 

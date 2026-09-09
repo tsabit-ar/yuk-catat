@@ -40,7 +40,7 @@ router.post('/register', async (req, res): Promise<void> => {
 
     // Insert user
     const insertResult = await pool.query(
-      `INSERT INTO users (name, email, password)
+      `INSERT INTO users (name, email, password_hash)
        VALUES ($1, $2, $3)
        RETURNING id, name, email, created_at AS "createdAt"`,
       [name.trim(), emailLower, hashedPassword]
@@ -96,7 +96,7 @@ router.post('/login', async (req, res): Promise<void> => {
 
     // Find user
     const result = await pool.query(
-      'SELECT id, name, email, password, created_at AS "createdAt" FROM users WHERE email = $1',
+      'SELECT id, name, email, password_hash, created_at AS "createdAt" FROM users WHERE email = $1',
       [emailLower]
     );
 
@@ -108,7 +108,7 @@ router.post('/login', async (req, res): Promise<void> => {
     const user = result.rows[0];
 
     // Compare password
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       res.status(401).json({ error: 'Email atau kata sandi tidak sesuai.' });
       return;
